@@ -1,23 +1,15 @@
-import logo from './logo.svg';
+import React, { useState } from 'react';
 import './App.css';
+import ExerciseSelector from './ExerciseSelector';
+import ExerciseFeedback from './ExerciseFeedback';
 
 function App() {
+  const [selectedExercise, setSelectedExercise] = useState('squat');
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <ExerciseSelector selectedExercise={selectedExercise} setSelectedExercise={setSelectedExercise} />
+      <ExerciseFeedback selectedExercise={selectedExercise} />
     </div>
   );
 }
