@@ -3,11 +3,15 @@ import * as cam from '@mediapipe/camera_utils';
 import { Pose } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import Webcam from 'react-webcam';
+import './ExerciseFeedback.css';
 
 const ExerciseFeedback = ({ selectedExercise }) => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const [feedback, setFeedback] = useState('');
+  const [positionMessage, setPositionMessage] = useState('');
+  const [exerciseCount, setExerciseCount] = useState(0);
+  const [inCorrectForm, setInCorrectForm] = useState(false);
 
   useEffect(() => {
     const userPose = new Pose({
@@ -41,10 +45,16 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       });
       canvasCtx.restore();
 
+      adjustUserPosition(results.poseLandmarks);
+
       if (selectedExercise === 'squat') {
         evaluateSquat(results.poseLandmarks);
       } else if (selectedExercise === 'lunge') {
         evaluateLunge(results.poseLandmarks);
+      } else if (selectedExercise === 'dumbbell_curl') {
+        evaluateDumbbellCurl(results.poseLandmarks);
+      } else if (selectedExercise === 'shoulder_press') {
+        evaluateShoulderPress(results.poseLandmarks);
       }
     });
 
@@ -67,6 +77,27 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     return Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB)) * (180 / Math.PI);
   };
 
+  const adjustUserPosition = (keypoints) => {
+    const nose = keypoints.find(point => point.part === 'nose');
+    if (nose) {
+      const x = nose.x;
+      const y = nose.y;
+      let message = '';
+
+      if (x < 0.3) {
+        message = 'Move to the right';
+      } else if (x > 0.7) {
+        message = 'Move to the left';
+      } else if (y < 0.3) {
+        message = 'Move back';
+      } else if (y > 0.7) {
+        message = 'Move forward';
+      }
+
+      setPositionMessage(message);
+    }
+  };
+
   const evaluateSquat = (keypoints) => {
     const leftHip = keypoints.find(point => point.part === 'left_hip');
     const leftKnee = keypoints.find(point => point.part === 'left_knee');
@@ -78,20 +109,16 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
     const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
 
-    let feedbackMessage = '';
-
-    if (leftKneeAngle >= 80 && leftKneeAngle <= 100 && rightKneeAngle >= 80 && rightKneeAngle <= 100) {
-      feedbackMessage = 'Squat is perfect!';
-    } else {
-      feedbackMessage = 'Adjust your squat posture.';
-      if (leftKneeAngle < 80 || rightKneeAngle < 80) {
-        feedbackMessage += ' Bend your knees more.';
-      } else if (leftKneeAngle > 100 || rightKneeAngle > 100) {
-        feedbackMessage += ' Straighten your knees a bit.';
+    if (leftKneeAngle >= 70 && leftKneeAngle <= 110 && rightKneeAngle >= 70 && rightKneeAngle <= 110) {
+      if (!inCorrectForm) {
+        setExerciseCount(prevCount => prevCount + 1);
+        setInCorrectForm(true);
       }
+      setFeedback('Squat is perfect!');
+    } else {
+      setInCorrectForm(false);
+      setFeedback('');
     }
-
-    setFeedback(feedbackMessage);
   };
 
   const evaluateLunge = (keypoints) => {
@@ -105,20 +132,62 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
     const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
 
-    let feedbackMessage = '';
-
-    if (leftKneeAngle >= 80 && leftKneeAngle <= 100 && rightKneeAngle >= 80 && rightKneeAngle <= 100) {
-      feedbackMessage = 'Lunge is perfect!';
-    } else {
-      feedbackMessage = 'Adjust your lunge posture.';
-      if (leftKneeAngle < 80 || rightKneeAngle < 80) {
-        feedbackMessage += ' Bend your knees more.';
-      } else if (leftKneeAngle > 100 || rightKneeAngle > 100) {
-        feedbackMessage += ' Straighten your knees a bit.';
+    if (leftKneeAngle >= 70 && leftKneeAngle <= 110 && rightKneeAngle >= 70 && rightKneeAngle <= 110) {
+      if (!inCorrectForm) {
+        setExerciseCount(prevCount => prevCount + 1);
+        setInCorrectForm(true);
       }
+      setFeedback('Lunge is perfect!');
+    } else {
+      setInCorrectForm(false);
+      setFeedback('');
     }
+  };
 
-    setFeedback(feedbackMessage);
+  const evaluateDumbbellCurl = (keypoints) => {
+    const leftShoulder = keypoints.find(point => point.part === 'left_shoulder');
+    const leftElbow = keypoints.find(point => point.part === 'left_elbow');
+    const leftWrist = keypoints.find(point => point.part === 'left_wrist');
+    const rightShoulder = keypoints.find(point => point.part === 'right_shoulder');
+    const rightElbow = keypoints.find(point => point.part === 'right_elbow');
+    const rightWrist = keypoints.find(point => point.part === 'right_wrist');
+
+    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+    const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+
+    if (leftElbowAngle >= 40 && leftElbowAngle <= 160 && rightElbowAngle >= 40 && rightElbowAngle <= 160) {
+      if (!inCorrectForm) {
+        setExerciseCount(prevCount => prevCount + 1);
+        setInCorrectForm(true);
+      }
+      setFeedback('Dumbbell curl is perfect!');
+    } else {
+      setInCorrectForm(false);
+      setFeedback('');
+    }
+  };
+
+  const evaluateShoulderPress = (keypoints) => {
+    const leftShoulder = keypoints.find(point => point.part === 'left_shoulder');
+    const leftElbow = keypoints.find(point => point.part === 'left_elbow');
+    const leftWrist = keypoints.find(point => point.part === 'left_wrist');
+    const rightShoulder = keypoints.find(point => point.part === 'right_shoulder');
+    const rightElbow = keypoints.find(point => point.part === 'right_elbow');
+    const rightWrist = keypoints.find(point => point.part === 'right_wrist');
+
+    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+    const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+
+    if (leftElbowAngle >= 150 && leftElbowAngle <= 180 && rightElbowAngle >= 150 && rightElbowAngle <= 180) {
+      if (!inCorrectForm) {
+        setExerciseCount(prevCount => prevCount + 1);
+        setInCorrectForm(true);
+      }
+      setFeedback('Shoulder press is perfect!');
+    } else {
+      setInCorrectForm(false);
+      setFeedback('');
+    }
   };
 
   return (
@@ -126,7 +195,9 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       <Webcam ref={webcamRef} style={{ display: 'none' }} />
       <canvas ref={canvasRef} style={{ width: '640px', height: '480px' }} />
       <div style={{ marginTop: '20px', fontSize: '20px', color: '#ff0000' }}>
-        {feedback}
+        <div className="popup">{feedback}</div>
+        <div>{positionMessage}</div>
+        <div>Count: {exerciseCount}</div>
       </div>
     </div>
   );
