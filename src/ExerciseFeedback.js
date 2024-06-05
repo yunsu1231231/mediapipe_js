@@ -14,21 +14,25 @@ const ExerciseFeedback = ({ selectedExercise }) => {
   const [inCorrectForm, setInCorrectForm] = useState(false);
 
   useEffect(() => {
-    const userPose = new Pose({
-      locateFile: (file) => {
-        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-      },
-    });
+    let userPose;
 
-    userPose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      enableSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    const initializePose = () => {
+      userPose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+      });
 
-    userPose.onResults((results) => {
+      userPose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      userPose.onResults(onResults);
+    };
+
+    const onResults = (results) => {
       const canvasElement = canvasRef.current;
       const canvasCtx = canvasElement.getContext('2d');
 
@@ -56,18 +60,31 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       } else if (selectedExercise === 'shoulder_press') {
         evaluateShoulderPress(results.poseLandmarks);
       }
-    });
+    };
 
-    if (typeof webcamRef.current !== 'undefined' && webcamRef.current !== null) {
-      const camera = new cam.Camera(webcamRef.current.video, {
-        onFrame: async () => {
-          await userPose.send({ image: webcamRef.current.video });
-        },
-        width: 1280,
-        height: 720,
-      });
-      camera.start();
-    }
+    const startCamera = async () => {
+      if (webcamRef.current && webcamRef.current.video) {
+        const camera = new cam.Camera(webcamRef.current.video, {
+          onFrame: async () => {
+            if (userPose) {
+              await userPose.send({ image: webcamRef.current.video });
+            }
+          },
+          width: 640,
+          height: 480,
+        });
+        camera.start();
+      }
+    };
+
+    initializePose();
+    startCamera();
+
+    return () => {
+      if (userPose) {
+        userPose.close();
+      }
+    };
   }, [selectedExercise]);
 
   const calculateAngle = (pointA, pointB, pointC) => {
