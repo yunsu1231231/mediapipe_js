@@ -9,8 +9,10 @@ const ExerciseSelector = ({ selectedExercise, setSelectedExercise }) => {
         value={selectedExercise}
         onChange={(e) => setSelectedExercise(e.target.value)}
       >
-        <option value="squat">Squat~!</option>
+        <option value="squat">Squat</option>
         <option value="lunge">Lunge</option>
+        <option value="shoulder press">Shoulder Press</option>
+        <option value="dumbbell curl">Dumbbell Curl</option>
       </select>
     </div>
   );

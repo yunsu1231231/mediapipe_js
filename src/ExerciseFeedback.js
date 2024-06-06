@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as cam from '@mediapipe/camera_utils';
-import { Pose } from '@mediapipe/pose';
+import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import Webcam from 'react-webcam';
 
@@ -8,6 +8,8 @@ const ExerciseFeedback = ({ selectedExercise }) => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const [feedback, setFeedback] = useState('');
+  const [count, setCount] = useState(0);
+  const [squatState, setSquatState] = useState('up');
 
   useEffect(() => {
     const userPose = new Pose({
@@ -31,7 +33,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-      drawConnectors(canvasCtx, results.poseLandmarks, Pose.POSE_CONNECTIONS, {
+      drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
         color: '#00FF00',
         lineWidth: 4,
       });
@@ -58,62 +60,86 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       });
       camera.start();
     }
-  }, [selectedExercise]);
+  }, [selectedExercise, squatState]);
 
-  const calculateAngle = (pointA, pointB, pointC) => {
-    const AB = Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2));
-    const BC = Math.sqrt(Math.pow(pointC.x - pointB.x, 2) + Math.pow(pointC.y - pointB.y, 2));
-    const AC = Math.sqrt(Math.pow(pointC.x - pointA.x, 2) + Math.pow(pointC.y - pointA.y, 2));
-    return Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB)) * (180 / Math.PI);
+  const calculateAngle = (point1, point2, point3) => {
+    if (!point1 || !point2 || !point3) {
+      console.log('One or more points are undefined:', point1, point2, point3);
+      return null;
+    }
+
+    const { x: x1, y: y1 } = point1;
+    const { x: x2, y: y2 } = point2;
+    const { x: x3, y: y3 } = point3;
+
+    if (x1 === undefined || x2 === undefined || x3 === undefined || y1 === undefined || y2 === undefined || y3 === undefined) {
+      console.log('One or more points do not have x or y properties:', point1, point2, point3);
+      return null;
+    }
+
+    const angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
+    return Math.abs(angle * (180.0 / Math.PI));
   };
 
   const evaluateSquat = (keypoints) => {
-    const leftHip = keypoints.find(point => point.part === 'left_hip');
-    const leftKnee = keypoints.find(point => point.part === 'left_knee');
-    const leftAnkle = keypoints.find(point => point.part === 'left_ankle');
-    const rightHip = keypoints.find(point => point.part === 'right_hip');
-    const rightKnee = keypoints.find(point => point.part === 'right_knee');
-    const rightAnkle = keypoints.find(point => point.part === 'right_ankle');
-
-    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
-    const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
-
-    let feedbackMessage = '';
-
-    if (leftKneeAngle >= 80 && leftKneeAngle <= 100 && rightKneeAngle >= 80 && rightKneeAngle <= 100) {
-      feedbackMessage = 'Squat is perfect!';
-    } else {
-      feedbackMessage = 'Adjust your squat posture.';
-      if (leftKneeAngle < 80 || rightKneeAngle < 80) {
-        feedbackMessage += ' Bend your knees more.';
-      } else if (leftKneeAngle > 100 || rightKneeAngle > 100) {
-        feedbackMessage += ' Straighten your knees a bit.';
-      }
+    if (!keypoints || keypoints.length === 0) {
+      console.log('Keypoints are undefined or empty.');
+      return;
     }
 
-    setFeedback(feedbackMessage);
+    const leftHip = keypoints[23];
+    const leftKnee = keypoints[25];
+    const leftAnkle = keypoints[27];
+
+    if (!leftHip || !leftKnee || !leftAnkle) {
+      console.log('One or more keypoints are missing:', { leftHip, leftKnee, leftAnkle });
+      return;
+    }
+
+    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
+
+    if (leftKneeAngle === null) {
+      console.log('One or more angles could not be calculated.');
+      return;
+    }
+
+    console.log(`Left Knee Angle: ${leftKneeAngle}`);
+
+    if (leftKneeAngle > 169) {
+      setSquatState('up');
+      setFeedback('Stand up straight!');
+    } else if (squatState === 'up' && leftKneeAngle >= 70 && leftKneeAngle <= 110) {
+      setSquatState('down');
+      setFeedback('Squat is perfect!');
+    } else if (squatState === 'down' && leftKneeAngle > 150) {
+      setCount((prevCount) => prevCount + 1);
+      setSquatState('up');
+      setFeedback('Good job! Stand up straight!');
+    } else if (squatState === 'up') {
+      setFeedback('Adjust your squat posture.');
+    }
   };
 
   const evaluateLunge = (keypoints) => {
-    const leftHip = keypoints.find(point => point.part === 'left_hip');
-    const leftKnee = keypoints.find(point => point.part === 'left_knee');
-    const leftAnkle = keypoints.find(point => point.part === 'left_ankle');
-    const rightHip = keypoints.find(point => point.part === 'right_hip');
-    const rightKnee = keypoints.find(point => point.part === 'right_knee');
-    const rightAnkle = keypoints.find(point => point.part === 'right_ankle');
+    const leftHip = keypoints[23];
+    const leftKnee = keypoints[25];
+    const leftAnkle = keypoints[27];
+    const rightHip = keypoints[24];
+    const rightKnee = keypoints[26];
+    const rightAnkle = keypoints[28];
 
     const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
     const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
 
     let feedbackMessage = '';
 
-    if (leftKneeAngle >= 80 && leftKneeAngle <= 100 && rightKneeAngle >= 80 && rightKneeAngle <= 100) {
+    if (leftKneeAngle >= 70 && leftKneeAngle <= 110 && rightKneeAngle >= 70 && rightKneeAngle <= 110) {
       feedbackMessage = 'Lunge is perfect!';
     } else {
       feedbackMessage = 'Adjust your lunge posture.';
-      if (leftKneeAngle < 80 || rightKneeAngle < 80) {
+      if (leftKneeAngle < 70 || rightKneeAngle < 70) {
         feedbackMessage += ' Bend your knees more.';
-      } else if (leftKneeAngle > 100 || rightKneeAngle > 100) {
+      } else if (leftKneeAngle > 110 || rightKneeAngle > 110) {
         feedbackMessage += ' Straighten your knees a bit.';
       }
     }
@@ -127,6 +153,9 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       <canvas ref={canvasRef} style={{ width: '640px', height: '480px' }} />
       <div style={{ marginTop: '20px', fontSize: '20px', color: '#ff0000' }}>
         {feedback}
+      </div>
+      <div style={{ marginTop: '10px', fontSize: '18px', color: '#0000ff' }}>
+        Squat Count: {count}
       </div>
     </div>
   );
