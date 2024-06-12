@@ -223,7 +223,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
 
     if (leftElbowAngle <= 60 && exerciseStateRef.current === 'up'){
       setExerciseState('down');//팔을 구부리면서 시작
-      setFeedback('Press up!');//팔 피라고 말해주기
+      setFeedback('Press up!');//팔피라고 말해주기
     } else if (leftShoulderY > leftElbowY && leftElbowAngle >= 160 && exerciseStateRef.current === 'down'){
       setExerciseState('up');
       setFeedback('Press is GREAT!');
