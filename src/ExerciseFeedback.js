@@ -131,7 +131,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     if (leftElbowAngle <= 60 && exerciseStateRef.current === 'up') {
       setExerciseState('down');
       setFeedback('Press up!');
-    } else if (leftShoulderY > leftElbowY && leftElbowAngle >= 160 && exerciseStateRef.current === 'down') {n
+    } else if (leftShoulderY > leftElbowY && leftElbowAngle >= 160 && exerciseStateRef.current === 'down') {
       setExerciseState('up');
       setFeedback('Press is GREAT!');
       setCount((prevCount) => prevCount + 1);
