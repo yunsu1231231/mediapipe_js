@@ -14,7 +14,7 @@ const ExerciseSelector = ({ selectedExercise, setSelectedExercise }) => {
         <option value="shoulder press">Shoulder Press</option>
         <option value="dumbbell curl">Dumbbell Curl</option>
       </select>
-    </div>
+    </div>  
   );
 };
 

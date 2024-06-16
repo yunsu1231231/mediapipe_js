@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as cam from '@mediapipe/camera_utils';
 import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -34,7 +34,117 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     setInitialSetup(true); // Reset initial setup when exercise changes
   }, [selectedExercise]);
 
+  const calculateAngle = useCallback((point1, point2, point3) => {
+    if (!point1 || !point2 || !point3) {
+      return null;
+    }
+
+    const { x: x1, y: y1 } = point1;
+    const { x: x2, y: y2 } = point2;
+    const { x: x3, y: y3 } = point3;
+
+    const angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
+    return Math.abs(angle * (180.0 / Math.PI));
+  }, []);
+
+  const evaluateSquat = useCallback((keypoints) => {
+    if (!keypoints || !keypoints[23] || !keypoints[25] || !keypoints[27]) return;
+
+    const leftHip = keypoints[23];
+    const leftKnee = keypoints[25];
+    const leftAnkle = keypoints[27];
+
+    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
+
+    if (leftKneeAngle > 169 && exerciseStateRef.current === 'down') {
+      setExerciseState('up');
+      setFeedback('Bend your leg!');
+    } else if (leftKneeAngle <= 110 && exerciseStateRef.current === 'up') {
+      setExerciseState('down');
+      setFeedback('Squat is GREAT!');
+      setCount((prevCount) => prevCount + 1);
+    } else if (leftKneeAngle > 110 && leftKneeAngle <= 130 && exerciseStateRef.current === 'up') {
+      setFeedback('Squat is so-so.');
+    } else if (leftKneeAngle > 130 && leftKneeAngle <= 150 && exerciseStateRef.current === 'up') {
+      setFeedback('Squat is bad.');
+    }
+  }, [calculateAngle]);
+
+  const evaluateLunge = useCallback((keypoints) => {
+    if (!keypoints || !keypoints[23] || !keypoints[25] || !keypoints[27]) return;
+
+    const leftHip = keypoints[23];
+    const leftKnee = keypoints[25];
+    const leftAnkle = keypoints[27];
+
+    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
+
+    if (leftKneeAngle > 169 && exerciseStateRef.current === 'down') {
+      setExerciseState('up');
+      setFeedback('Bend your leg!');
+    } else if (leftKneeAngle <= 110 && exerciseStateRef.current === 'up') {
+      setExerciseState('down');
+      setFeedback('Lunge is GREAT!');
+      setCount((prevCount) => prevCount + 1);
+    } else if (leftKneeAngle > 110 && leftKneeAngle <= 130 && exerciseStateRef.current === 'up') {
+      setFeedback('Lunge is so-so.');
+    } else if (leftKneeAngle > 130 && leftKneeAngle <= 150 && exerciseStateRef.current === 'up') {
+      setFeedback('Lunge is bad.');
+    }
+  }, [calculateAngle]);
+
+  const evaluateCurl = useCallback((keypoints) => {
+    if (!keypoints || !keypoints[11] || !keypoints[13] || !keypoints[15]) return;
+
+    const leftShoulder = keypoints[11];
+    const leftElbow = keypoints[13];
+    const leftWrist = keypoints[15];
+
+    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+
+    if (leftElbowAngle > 160 && exerciseStateRef.current === 'up') {
+      setExerciseState('down');
+      setFeedback('Bend your arm!');
+    } else if (leftElbowAngle <= 40 && exerciseStateRef.current === 'down') {
+      setExerciseState('up');
+      setFeedback('Curl is GREAT!');
+      setCount((prevCount) => prevCount + 1);
+    } else if (leftElbowAngle > 40 && leftElbowAngle <= 60 && exerciseStateRef.current === 'down') {
+      setFeedback('Curl is so-so.');
+    } else if (leftElbowAngle > 60 && leftElbowAngle <= 80 && exerciseStateRef.current === 'down') {
+      setFeedback('Curl is bad.');
+    }
+  }, [calculateAngle]);
+
+  const evaluatePress = useCallback((keypoints) => {
+    if (!keypoints || !keypoints[11] || !keypoints[13] || !keypoints[15]) return;
+
+    const leftShoulder = keypoints[11];
+    const leftElbow = keypoints[13];
+    const leftWrist = keypoints[15];
+
+    const leftShoulderY = leftShoulder.y;
+    const leftElbowY = leftElbow.y;
+
+    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+
+    if (leftElbowAngle <= 60 && exerciseStateRef.current === 'up') {
+      setExerciseState('down');
+      setFeedback('Press up!');
+    } else if (leftShoulderY > leftElbowY && leftElbowAngle >= 160 && exerciseStateRef.current === 'down') {n
+      setExerciseState('up');
+      setFeedback('Press is GREAT!');
+      setCount((prevCount) => prevCount + 1);
+    } else if (leftShoulderY > leftElbowY && leftElbowAngle > 130 && leftElbowAngle <= 160 && exerciseStateRef.current === 'down') {
+      setFeedback('Press is so-so.');
+    } else if (leftShoulderY > leftElbowY && leftElbowAngle > 100 && leftElbowAngle <= 130 && exerciseStateRef.current === 'down') {
+      setFeedback('Press is bad.');
+    }
+  }, [calculateAngle]);
+
   useEffect(() => {
+    let isMounted = true; // 컴포넌트가 마운트된 상태를 추적합니다.
+
     const userPose = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
     });
@@ -48,9 +158,11 @@ const ExerciseFeedback = ({ selectedExercise }) => {
     });
 
     userPose.onResults((results) => {
+      if (!isMounted) return; // 컴포넌트가 언마운트된 경우 함수 실행을 중단합니다.
+
       const canvasElement = canvasRef.current;
       const canvasCtx = canvasElement.getContext('2d');
-    
+
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -62,18 +174,17 @@ const ExerciseFeedback = ({ selectedExercise }) => {
         color: '#FF0000',
         lineWidth: 2,
       });
-    
+
       if (initialSetup) {
-        // Draw the rectangle
         const rectX1 = 0.3 * canvasElement.width;
         const rectY1 = 0.2 * canvasElement.height;
         const rectX2 = 0.7 * canvasElement.width;
         const rectY2 = 0.6 * canvasElement.height;
-        
-        canvasCtx.strokeStyle = '#006400'; // Dark green color of the rectangle
-        canvasCtx.lineWidth = 1; // Width of the rectangle lines
+
+        canvasCtx.strokeStyle = '#006400'; // 사각형의 색상을 설정합니다.
+        canvasCtx.lineWidth = 1; // 사각형의 선 너비를 설정합니다.
         canvasCtx.strokeRect(rectX1, rectY1, rectX2 - rectX1, rectY2 - rectY1);
-    
+
         const leftShoulder = results.poseLandmarks[11];
         const rightShoulder = results.poseLandmarks[12];
         if (leftShoulder && rightShoulder) {
@@ -81,7 +192,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
           const rightShoulderX = rightShoulder.x;
           const avgX = (leftShoulderX + rightShoulderX) / 2;
           if (avgX > 0.4 && avgX < 0.6) {
-            setInitialSetup(false);
+            setInitialSetup(false); // 사용자가 중앙에 있을 때 초기 설정을 완료합니다.
             setFeedback('Great! You are in the right position.');
           } else {
             setFeedback('Please move to the center of the frame.');
@@ -105,7 +216,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
             break;
         }
       }
-    
+
       canvasCtx.restore();
     });
 
@@ -119,122 +230,11 @@ const ExerciseFeedback = ({ selectedExercise }) => {
       });
       camera.start();
     }
-  }, [selectedExercise, initialSetup]);
 
-  const calculateAngle = (point1, point2, point3) => {
-    if (!point1 || !point2 || !point3) {
-      return null;
-    }
-
-    const { x: x1, y: y1 } = point1;
-    const { x: x2, y: y2 } = point2;
-    const { x: x3, y: y3 } = point3;
-
-    const angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
-    return Math.abs(angle * (180.0 / Math.PI));
-  };
-
-  const evaluateSquat = (keypoints) => {
-    if (!keypoints || !keypoints[23] || !keypoints[25] || !keypoints[27]) return;
-
-    const leftHip = keypoints[23];
-    const leftKnee = keypoints[25];
-    const leftAnkle = keypoints[27];
-
-    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
-
-    if (leftKneeAngle > 169 && exerciseStateRef.current === 'down') {
-      setExerciseState('up');
-      setFeedback('Bend your leg!');
-    } else if (leftKneeAngle <= 110 && exerciseStateRef.current === 'up') {
-      setExerciseState('down');
-      setFeedback('Squat is GREAT!');
-      setCount((prevCount) => prevCount + 1);
-    } else if (leftKneeAngle > 110 && leftKneeAngle <= 130 && exerciseStateRef.current === 'up') {
-      //setExerciseState('down');
-      setFeedback('Squat is so-so.');
-    } else if (leftKneeAngle > 130 && leftKneeAngle <= 150 && exerciseStateRef.current === 'up') {
-      //setExerciseState('down');
-      setFeedback('Squat is bad.');
-    }
-  };
-
-  const evaluateLunge = (keypoints) => {
-    if (!keypoints || !keypoints[23] || !keypoints[25] || !keypoints[27]) return;
-
-    const leftHip = keypoints[23];
-    const leftKnee = keypoints[25];
-    const leftAnkle = keypoints[27];
-
-    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
-
-    if (leftKneeAngle > 169 && exerciseStateRef.current === 'down') {
-      setExerciseState('up');
-      setFeedback('Bend your leg!');
-    } else if (leftKneeAngle <= 110 && exerciseStateRef.current === 'up') {
-      setExerciseState('down');
-      setFeedback('Lunge is GREAT!');
-      setCount((prevCount) => prevCount + 1);
-    } else if (leftKneeAngle > 110 && leftKneeAngle <= 130 && exerciseStateRef.current === 'up') {
-      //setExerciseState('down');
-      setFeedback('Lunge is so-so.');
-    } else if (leftKneeAngle > 130 && leftKneeAngle <= 150 && exerciseStateRef.current === 'up') {
-      //setExerciseState('down');
-      setFeedback('Lunge is bad.');
-    }
-    
-  };
-
-  const evaluateCurl = (keypoints) => {
-    if (!keypoints || !keypoints[11] || !keypoints[13] || !keypoints[15]) return;
-  
-    const leftShoulder = keypoints[11];
-    const leftElbow = keypoints[13];
-    const leftWrist = keypoints[15];
-  
-    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
-  
-    if (leftElbowAngle > 160 && exerciseStateRef.current === 'up') {//팔을 뻗으면서 시작
-      setExerciseState('down');
-      setFeedback('Bend your arm!');
-    } else if (leftElbowAngle <= 40 && exerciseStateRef.current === 'down') {
-      setExerciseState('up');
-      setFeedback('Curl is GREAT!');
-      setCount((prevCount) => prevCount + 1);
-    } else if (leftElbowAngle > 40 && leftElbowAngle <= 60 && exerciseStateRef.current === 'down') {
-      setFeedback('Curl is so-so.');
-    } else if (leftElbowAngle > 60 && leftElbowAngle <= 80 && exerciseStateRef.current === 'down') {
-      setFeedback('Curl is bad.');
-    }
-  };
-  
-
-  const evaluatePress = (keypoints) => {
-    if (!keypoints || !keypoints[11] || !keypoints[13] || !keypoints[15]) return;
-
-    const leftShoulder = keypoints[11];
-    const leftElbow = keypoints[13];
-    const leftWrist = keypoints[15];
-
-    const leftShoulderY = leftShoulder.y;
-    const leftElbowY = leftElbow.y;
-    
-    const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
-
-    if (leftElbowAngle <= 60 && exerciseStateRef.current === 'up'){
-      setExerciseState('down');//팔을 구부리면서 시작
-      setFeedback('Press up!');//팔피라고 말해주기
-    } else if (leftShoulderY > leftElbowY && leftElbowAngle >= 160 && exerciseStateRef.current === 'down'){
-      setExerciseState('up');
-      setFeedback('Press is GREAT!');
-      setCount((prevCount) => prevCount + 1);
-    } else if (leftShoulderY > leftElbowY && leftElbowAngle > 130 && leftElbowAngle <= 160 && exerciseStateRef.current === 'down'){
-      //setExerciseState('up'); // 이거를 빼야할지 넣어야할지 생각. 나는 빼는거 한표.
-      setFeedback('Press is so-so.');
-    } else if (leftShoulderY > leftElbowY && leftElbowAngle > 100 && leftElbowAngle <= 130 && exerciseStateRef.current === 'down'){
-      setFeedback('Press is bad.');
-    }
-  };
+    return () => {
+      isMounted = false; // 컴포넌트 언마운트 시 마운트 상태를 업데이트합니다.
+    };
+  }, [selectedExercise, initialSetup, evaluateSquat, evaluateLunge, evaluateCurl, evaluatePress]);
 
   return (
     <div style={{ position: 'relative', width: '95vw', height: '95vh' }}>
@@ -245,7 +245,7 @@ const ExerciseFeedback = ({ selectedExercise }) => {
           top: 0,
           left: 0,
           width: '100%',
-          height: '100%',
+          height: '100%', 
         }}
       />
       <canvas
