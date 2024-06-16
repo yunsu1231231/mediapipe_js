@@ -1,5 +1,5 @@
 {
-  "homepage": "https://jisuuuuu.github.io/mediapipe_js",
+  "homepage": "https://yunsu1231231.github.io/mediapipe_js",
   "name": "media-pose-app",
   "version": "0.1.0",
   "private": true,
@@ -11,7 +11,6 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "gh-pages": "^6.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
@@ -25,6 +24,7 @@
     "eject": "react-scripts eject",
     "deploy": "gh-pages -d build",
     "predeploy": "npm run build"
+    
   },
   "eslintConfig": {
     "extends": [
@@ -45,6 +45,7 @@
     ]
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "gh-pages": "^6.1.1"
   }
 }
